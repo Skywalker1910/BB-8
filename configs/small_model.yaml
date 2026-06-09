@@ -1,0 +1,36 @@
+# Small model — fast iteration, quick experiments
+model:
+  d_model: 64
+  num_layers: 2
+  num_heads: 2
+  d_ff: 256
+  max_seq_len: 128
+  dropout: 0.1
+  activation: gelu
+  tie_weights: true
+
+tokenizer:
+  type: char
+  vocab_size: null
+
+training:
+  batch_size: 64
+  num_epochs: 5
+  lr: 1.0e-3
+  weight_decay: 0.1
+  max_grad_norm: 1.0
+  warmup_steps: 50
+  log_interval: 10
+  eval_interval: 50
+  save_interval: 200
+
+data:
+  seq_len: 128
+  val_fraction: 0.1
+
+generation:
+  max_new_tokens: 100
+  temperature: 0.8
+  top_k: 40
+  top_p: 0.9
+  repetition_penalty: 1.1
