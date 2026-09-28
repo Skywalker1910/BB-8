@@ -1,0 +1,51 @@
+experiment:
+  objective: supervised_instruction_fine_tuning
+  status: exploratory
+  baseline: bb8-bpe-instruct-v003-dev
+  change: pretrained Qwen2.5 base model with assistant-only LoRA fine-tuning
+
+base_model:
+  id: Qwen/Qwen2.5-0.5B
+  revision: 060db6499f32faf8b98477b0a26969ef7d8b9987
+  license: Apache-2.0
+  cache_dir: .cache/huggingface
+
+data:
+  preprocessing: legacy_v1
+  path: data/databricks-dolly-15k.jsonl
+  manifest: data/manifests/dolly_15k.json
+  validation_fraction: 0.05
+  seed: 42
+  max_length: 256
+
+lora:
+  rank: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  epochs: 1
+  batch_size: 4
+  eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+  precision: bf16
+  gradient_checkpointing: true
+  log_interval: 25
+
+generation:
+  max_new_tokens: 80
+  temperature: 0.6
+  top_p: 0.85
+  repetition_penalty: 1.1

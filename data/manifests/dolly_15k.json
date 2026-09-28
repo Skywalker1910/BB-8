@@ -1,0 +1,24 @@
+{
+  "name": "databricks-dolly-15k",
+  "source_url": "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a/databricks-dolly-15k.jsonl",
+  "source_revision": "bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a",
+  "license": "CC BY-SA 3.0",
+  "attribution": "Copyright 2023 Databricks, Inc.",
+  "format": "USER/BB causal-language-model transcript",
+  "normalization": "Unicode NFKD followed by ASCII encoding with unsupported characters removed",
+  "records": 15011,
+  "categories": {
+    "brainstorming": 1766,
+    "classification": 2136,
+    "closed_qa": 1773,
+    "creative_writing": 709,
+    "general_qa": 2191,
+    "information_extraction": 1506,
+    "open_qa": 3742,
+    "summarization": 1188
+  },
+  "shuffle_seed": 42,
+  "raw_sha256": "2df9083338b4abd6bceb5635764dab5d833b393b55759dffb0959b6fcbf794ec",
+  "formatted_sha256": "7aca431ce5f7d2550f4953c3984df2c6eafea9b6c8f8c9d3ff7912b0e7850c31",
+  "formatted_characters": 11978583
+}

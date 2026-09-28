@@ -8,6 +8,13 @@ Training loss alone does not tell the full story:
 - Perplexity converts loss into an interpretable "difficulty" score
 - Text quality metrics capture the human-perceived quality of generated text
 
+The measured results and their interpretation across all eight experiments
+(v001–v008) are recorded in [BB8 Training Results](training_results.md).
+The trusted from-scratch baseline is `bb8-char-small-v002` (validation loss
+1.6863, perplexity 5.40, accuracy 49.92%, BPC 2.4329). The best from-scratch
+model is `bb8-bpe-shakespeare-v007` (BPC 1.4237). The best chat model is
+`bb8-qwen-instruct-v008` (validation perplexity 5.94).
+
 BB8 uses the following evaluation framework (`evaluation/evaluator.py`).
 
 ---
@@ -42,9 +49,16 @@ Perplexity is computed per token.  Character-level tokens are much smaller than 
 
 ## Bits Per Character (BPC)
 
-$$\text{BPC} = \frac{\mathcal{L}}{\log 2}$$
+$$\text{BPT} = \frac{\mathcal{L}}{\log 2}$$
 
-BPC converts from nats to bits and normalises by character, making it comparable across different tokenization strategies.
+$$\text{BPC} = \text{BPT} \times
+\frac{\text{number of tokens}}{\text{number of source characters}}$$
+
+BPT converts per-token loss from nats to bits. BPC then normalises by the
+token-to-character ratio, making it comparable across tokenization strategies
+when measured on the same underlying corpus. The shorter formula
+`loss / ln(2)` is BPC only for a character tokenizer with one token per source
+character.
 
 | BPC | Interpretation |
 |---|---|
@@ -63,7 +77,8 @@ $$\mathcal{L} = -\frac{1}{N} \sum_{t=1}^{N} \log P(x_t \mid x_{<t})$$
 
 Relationship to other metrics:
 - $\text{PPL} = e^{\mathcal{L}}$
-- $\text{BPC} = \mathcal{L} / \ln 2$
+- $\text{BPT} = \mathcal{L} / \ln 2$
+- $\text{BPC} = \text{BPT} \times \text{tokens}/\text{characters}$
 
 ---
 
@@ -123,7 +138,8 @@ evaluator = Evaluator(model, tokenizer)
 # Dataset-level metrics
 metrics = evaluator.evaluate_dataset(val_loader)
 print(metrics)
-# {'loss': 2.3, 'perplexity': 9.97, 'accuracy': 0.42, 'bits_per_char': 3.32}
+# {'loss': 2.3, 'perplexity': 9.97, 'accuracy': 0.42,
+#  'bits_per_token': 3.32, 'bits_per_char': 1.41}
 
 # Single text evaluation
 metrics = evaluator.evaluate_text("To be or not to be.")

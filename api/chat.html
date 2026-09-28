@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BB8 Local Chat</title>
+  <link rel="stylesheet" href="/help.css">
+  <script src="/help.js" defer></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f3f6f8;
+      --panel: #ffffff;
+      --panel-2: #eaf1f8;
+      --line: #d4dee7;
+      --text: #182d3e;
+      --muted: #536679;
+      --orange: #087f68;
+      --orange-dark: #075f4e;
+      --blue: #2267b2;
+      --danger: #a72e43;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 17rem minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      padding: 1.4rem;
+      background: #fbfcfd;
+      border-right: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 1.8rem;
+    }
+
+    .droid {
+      display: grid;
+      place-items: center;
+      width: 2.6rem;
+      height: 2.6rem;
+      border-radius: 50%;
+      background: #ffcb75;
+      color: #17110b;
+      font-weight: 900;
+      box-shadow: 0 3px 12px #a6671512;
+    }
+
+    h1 { margin: 0; font-size: 1.05rem; }
+    .subtitle, .hint, .meta { color: var(--muted); }
+    .subtitle { margin-top: 0.2rem; font-size: 0.78rem; }
+
+    label {
+      display: block;
+      margin: 1rem 0 0.38rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 650;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 0.68rem 0.75rem;
+      border: 1px solid var(--line);
+      border-radius: 0.6rem;
+      background: var(--panel);
+      color: var(--text);
+    }
+
+    .secondary {
+      width: 100%;
+      margin-top: 1.2rem;
+      padding: 0.7rem;
+      border: 1px solid var(--line);
+      border-radius: 0.6rem;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .secondary:hover { border-color: var(--blue); }
+
+    .notice {
+      margin-top: 1.5rem;
+      padding: 0.8rem;
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.5;
+    }
+
+    main {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-width: 0;
+      height: 100vh;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.4rem;
+      border-bottom: 1px solid var(--line);
+      background: #ffffff;
+      backdrop-filter: blur(10px);
+    }
+
+    #status { font-size: 0.82rem; color: var(--muted); }
+    #status.ready { color: #087f68; }
+    #status.error { color: var(--danger); }
+
+    #messages {
+      overflow-y: auto;
+      padding: 2rem max(1rem, calc((100% - 52rem) / 2));
+    }
+
+    .empty {
+      max-width: 34rem;
+      margin: 18vh auto 0;
+      text-align: center;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .empty strong {
+      display: block;
+      margin-bottom: 0.6rem;
+      color: var(--text);
+      font-size: 1.35rem;
+    }
+
+    .message {
+      display: grid;
+      grid-template-columns: 2.4rem minmax(0, 1fr);
+      gap: 0.8rem;
+      margin-bottom: 1.35rem;
+    }
+
+    .avatar {
+      display: grid;
+      place-items: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 0.55rem;
+      background: var(--panel-2);
+      color: var(--blue);
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    .message.user .avatar { color: var(--orange); }
+    .role { margin-bottom: 0.3rem; font-size: 0.75rem; font-weight: 750; }
+
+    .content {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.58;
+    }
+
+    .composer-wrap {
+      padding: 1rem max(1rem, calc((100% - 52rem) / 2)) 1.3rem;
+      background: linear-gradient(transparent, var(--page) 28%);
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.7rem;
+      padding: 0.65rem;
+      border: 1px solid var(--line);
+      border-radius: 0.9rem;
+      background: var(--panel);
+      box-shadow: 0 5px 24px #20364a0c;
+    }
+
+    textarea {
+      min-height: 3rem;
+      max-height: 10rem;
+      resize: vertical;
+      padding: 0.65rem;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+    }
+
+    #send {
+      align-self: end;
+      min-width: 5.2rem;
+      padding: 0.72rem 1rem;
+      border: 0;
+      border-radius: 0.65rem;
+      background: var(--orange);
+      color: #ffffff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    #send:disabled { cursor: wait; opacity: 0.55; }
+    input:disabled { opacity: 0.6; cursor: not-allowed; }
+    a { color: var(--blue); }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+      outline: 2px solid #087f68;
+      outline-offset: 3px;
+    }
+    .hint { margin: 0.5rem 0 0; text-align: center; font-size: 0.72rem; }
+
+    @media (max-width: 760px) {
+      .app { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      header { padding-inline: 1rem; }
+      #messages { padding-top: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">
+        <div class="droid">BB</div>
+        <div>
+          <h1>BB8 Local Lab</h1>
+          <div class="subtitle">Language-model playground</div>
+        </div>
+      </div>
+
+      <label for="apiKey">Local API key</label>
+      <input id="apiKey" type="password" value="local-test-key" autocomplete="off">
+
+      <label for="chatModel">Chat model</label>
+      <select id="chatModel"><option value="default">Configured model</option></select>
+      <p class="subtitle">Qwen Instruct is an external baseline. BB8 v004 is our LoRA experiment. Changing models clears the conversation.</p>
+      <label for="groundedMode">Evidence mode</label>
+      <select id="groundedMode">
+        <option value="off">General chat</option>
+        <option value="on">Portfolio evidence + citations</option>
+      </select>
+      <p class="subtitle">Use a grounded model for the portfolio pilot. Source citations are experimental and must be checked.</p>
+
+      <label for="strategy">Decoding strategy</label>
+      <select id="strategy">
+        <option value="greedy">Greedy</option>
+        <option value="top_p">Top-P</option>
+        <option value="top_k">Top-K</option>
+        <option value="temperature">Temperature</option>
+      </select>
+
+      <p id="strategyHint" class="subtitle" aria-live="polite"></p>
+      <label for="contextMode">Question context</label>
+      <select id="contextMode">
+        <option value="fresh">Fresh question</option>
+        <option value="conversation">Conversation (experimental)</option>
+      </select>
+
+      <label for="temperature">Temperature</label>
+      <input id="temperature" type="number" value="0.8" min="0.1" max="2" step="0.1">
+
+      <label for="topK">Top-K candidates</label>
+      <input id="topK" type="number" value="40" min="1" max="200000">
+      <label for="topP">Top-P threshold</label>
+      <input id="topP" type="number" value="0.9" min="0.01" max="1" step="0.01">
+      <label for="penalty">Repetition penalty</label>
+      <input id="penalty" type="number" value="1.1" min="1" max="2" step="0.05">
+
+      <label for="maxTokens">Maximum new tokens</label>
+      <input id="maxTokens" type="number" value="80" min="1" max="256">
+
+      <button id="reset" class="secondary" type="button">New conversation</button>
+      <p><a href="/lab">Open token &amp; dataset lab →</a></p>
+
+      <div class="notice">
+        Fresh question sends only your latest message. Conversation includes
+        earlier turns. BB8 v004 often repeats old answers; the official Instruct
+        baseline performed better in our diagnostic tests. Both can be wrong.
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <div>
+          <strong>Chat with BB8</strong>
+          <div id="model" class="meta">Model not loaded</div>
+        </div>
+        <div id="status">Checking API…</div>
+      </header>
+
+      <section id="messages" aria-live="polite">
+        <div id="empty" class="empty">
+          <strong>Test the model interactively</strong>
+          Compare fresh questions or try experimental conversation context.
+          In Fresh question mode, include the full question each time.
+        </div>
+      </section>
+
+      <div class="composer-wrap">
+        <form id="chatForm" class="composer">
+          <textarea id="prompt" rows="2" placeholder="Write a message…" aria-label="Message"></textarea>
+          <button id="send" type="submit">Send</button>
+        </form>
+        <p class="hint">Enter to send · Shift+Enter for a new line · displayed messages stay in this browser tab</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const history = [];
+    const messagesElement = document.querySelector("#messages");
+    const emptyElement = document.querySelector("#empty");
+    const form = document.querySelector("#chatForm");
+    const promptElement = document.querySelector("#prompt");
+    const sendButton = document.querySelector("#send");
+    const statusElement = document.querySelector("#status");
+    const modelElement = document.querySelector("#model");
+    const contextModeElement = document.querySelector("#contextMode");
+    const strategyElement = document.querySelector("#strategy");
+    const chatModelElement = document.querySelector("#chatModel");
+    const groundedModeElement = document.querySelector("#groundedMode");
+    function updateDecodingControls() {
+      const strategy = strategyElement.value;
+      document.querySelector("#temperature").disabled = strategy === "greedy";
+      document.querySelector("#topK").disabled = strategy !== "top_k";
+      document.querySelector("#topP").disabled = strategy !== "top_p";
+      document.querySelector("#strategyHint").textContent = {
+        greedy: "Highest score after repetition penalty. Temperature, K and P are inactive.",
+        temperature: "Temperature and repetition penalty are active. K and P are inactive.",
+        top_k: "K, temperature and repetition penalty are active. P is inactive.",
+        top_p: "P, temperature and repetition penalty are active. K is inactive."
+      }[strategy];
+    }
+    strategyElement.addEventListener("change", updateDecodingControls);
+    updateDecodingControls();
+    for (const input of document.querySelectorAll('input[type="number"]')) input.required = true;
+
+    function addMessage(role, content) {
+      emptyElement.hidden = true;
+      const row = document.createElement("article");
+      row.className = "message " + role;
+
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.textContent = role === "user" ? "YOU" : "BB8";
+
+      const body = document.createElement("div");
+      const label = document.createElement("div");
+      label.className = "role";
+      label.textContent = role === "user" ? "You" : "BB8";
+      const text = document.createElement("div");
+      text.className = "content";
+      text.textContent = content;
+
+      body.append(label, text);
+      row.append(avatar, body);
+      messagesElement.append(row);
+      messagesElement.scrollTop = messagesElement.scrollHeight;
+      return body;
+    }
+
+    async function checkHealth() {
+      try {
+        const response = await fetch("/health");
+        if (!response.ok) throw new Error("API unavailable");
+        const health = await response.json();
+        const loadState = health.model_loaded ? "loaded" : "loads on first prompt";
+        modelElement.textContent = health.model + " · " + loadState + " · " + health.device;
+        statusElement.textContent = "API ready";
+        statusElement.className = "ready";
+      } catch (error) {
+        statusElement.textContent = "API unavailable";
+        statusElement.className = "error";
+      }
+    }
+
+    async function loadChatModels() {
+      try {
+        const response = await fetch("/chat/models", {headers: {"x-api-key": document.querySelector("#apiKey").value}});
+        if (!response.ok) throw new Error("Could not load model choices; check your API key.");
+        const data = await response.json();
+        const previous = chatModelElement.value;
+        chatModelElement.replaceChildren(...data.models.map(model => {
+          const option = document.createElement("option");
+          option.value = model.id;
+          option.textContent = model.label;
+          return option;
+        }));
+        chatModelElement.value = data.models.some(model => model.id === previous) ? previous : "default";
+      } catch (error) {
+        statusElement.textContent = error.message;
+        statusElement.className = "error";
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = promptElement.value.trim();
+      if (!message || sendButton.disabled) return;
+      for (const input of document.querySelectorAll('input[type="number"]:not(:disabled)')) {
+        if (!input.reportValidity()) return;
+      }
+
+      addMessage("user", message);
+      promptElement.value = "";
+      sendButton.disabled = true;
+      chatModelElement.disabled = true;
+      groundedModeElement.disabled = true;
+      contextModeElement.disabled = true;
+      document.querySelector("#reset").disabled = true;
+      statusElement.textContent = "BB8 is generating…";
+      statusElement.className = "";
+
+      const latestMessage = { role: "user", content: message };
+      const requestMessages = contextModeElement.value === "conversation"
+        ? history.concat([latestMessage])
+        : [latestMessage];
+      const payload = {
+        model: chatModelElement.value,
+        grounded: groundedModeElement.value === "on",
+        messages: requestMessages,
+        strategy: document.querySelector("#strategy").value,
+        temperature: Number(document.querySelector("#temperature").value),
+        max_new_tokens: Number(document.querySelector("#maxTokens").value),
+        top_k: Number(document.querySelector("#topK").value),
+        top_p: Number(document.querySelector("#topP").value),
+        repetition_penalty: Number(document.querySelector("#penalty").value)
+      };
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": document.querySelector("#apiKey").value
+          },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Generation failed");
+
+        const reply = result.reply || "(no text generated)";
+        history.push(
+          { role: "user", content: message },
+          { role: "assistant", content: reply }
+        );
+        const replyBody = addMessage("assistant", reply);
+        if (result.grounded) {
+          const details = document.createElement("details");
+          const summary = document.createElement("summary");
+          summary.textContent = "Evidence supplied to the model (not independently verified citations)";
+          details.append(summary);
+          for (const source of result.sources || []) {
+            const text = document.createElement("p");
+            text.textContent = `[${source.id}] ${source.title}: ${source.text} — Source: ${source.source}`;
+            details.append(text);
+          }
+          replyBody.append(details);
+          for (const warning of result.citation_checks?.warnings || []) {
+            const text = document.createElement("p");
+            text.className = "notice";
+            text.textContent = warning;
+            replyBody.append(text);
+          }
+        }
+        modelElement.textContent = result.model + " · " + result.context_tokens + "/" +
+          result.max_context_tokens + " context tokens · " +
+          contextModeElement.selectedOptions[0].textContent + " · " + result.generated_tokens +
+          " generated tokens · " + result.stop_reason + " · " + result.latency_ms + " ms";
+        statusElement.textContent = "API ready";
+        statusElement.className = "ready";
+      } catch (error) {
+        addMessage("assistant", "Request failed: " + error.message);
+        statusElement.textContent = "Request failed";
+        statusElement.className = "error";
+      } finally {
+        sendButton.disabled = false;
+        chatModelElement.disabled = false;
+        groundedModeElement.disabled = false;
+        contextModeElement.disabled = false;
+        document.querySelector("#reset").disabled = false;
+        promptElement.focus();
+      }
+    });
+
+    promptElement.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    function clearConversation() {
+      history.length = 0;
+      messagesElement.querySelectorAll(".message").forEach((item) => item.remove());
+      emptyElement.hidden = false;
+      modelElement.textContent = "Conversation cleared";
+      promptElement.focus();
+    }
+
+    document.querySelector("#reset").addEventListener("click", clearConversation);
+    contextModeElement.addEventListener("change", clearConversation);
+    chatModelElement.addEventListener("change", () => {
+      if (chatModelElement.value.startsWith("grounded-")) {
+        groundedModeElement.value = "on";
+        document.querySelector("#penalty").value = "1";
+        document.querySelector("#maxTokens").value = "96";
+        strategyElement.value = "greedy";
+        updateDecodingControls();
+      } else {
+        groundedModeElement.value = "off";
+      }
+      clearConversation();
+      modelElement.textContent = chatModelElement.selectedOptions[0].textContent + " · loads on first prompt";
+    });
+    groundedModeElement.addEventListener("change", clearConversation);
+    document.querySelector("#apiKey").addEventListener("change", loadChatModels);
+
+    checkHealth();
+    loadChatModels();
+    promptElement.focus();
+  </script>
+</body>
+</html>

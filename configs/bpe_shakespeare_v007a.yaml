@@ -1,0 +1,45 @@
+# v007a — Smaller BPE vocab (1000) to isolate vocab size effect
+# Goal: compare BPE-1000 vs BPE-3000 on same architecture
+experiment:
+  objective: bpe_vocab_size_ablation
+  status: completed
+  baseline: bb8-bpe-shakespeare-v007
+  change: vocab_size 3000->1000
+
+model:
+  d_model: 256
+  num_layers: 6
+  num_heads: 8
+  d_ff: 1024
+  max_seq_len: 512
+  dropout: 0.1
+  activation: gelu
+  tie_weights: true
+
+tokenizer:
+  type: bpe
+  vocab_size: 1000
+
+training:
+  batch_size: 16
+  num_epochs: 20
+  lr: 3.0e-4
+  weight_decay: 0.1
+  max_grad_norm: 1.0
+  warmup_steps: 200
+  mixed_precision: true
+  log_interval: 10
+  eval_interval: 200
+  save_interval: 1000
+
+data:
+  seq_len: 512
+  stride: 256
+  val_fraction: 0.1
+
+generation:
+  max_new_tokens: 300
+  temperature: 0.8
+  top_k: 50
+  top_p: 0.9
+  repetition_penalty: 1.1

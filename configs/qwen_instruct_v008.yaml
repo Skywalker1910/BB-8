@@ -1,0 +1,53 @@
+# v008 — Instruction-tuned base + LoRA, longer context
+# Goal: compare starting from Qwen-Instruct vs raw Qwen base
+experiment:
+  objective: supervised_instruction_fine_tuning
+  status: completed
+  baseline: bb8-qwen-lora-v004-dev
+  change: instruction-tuned base model, 512-token context, 2 epochs, lower LR
+
+base_model:
+  id: Qwen/Qwen2.5-0.5B-Instruct
+  revision: 7ae557604adf67be50417f59c2c2f167def9a775
+  license: Apache-2.0
+  cache_dir: .cache/huggingface
+
+data:
+  preprocessing: full_example_v2
+  path: data/databricks-dolly-15k.jsonl
+  manifest: data/manifests/dolly_15k.json
+  validation_fraction: 0.05
+  seed: 42
+  max_length: 512
+
+lora:
+  rank: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  epochs: 2
+  batch_size: 4
+  eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  max_grad_norm: 1.0
+  precision: bf16
+  gradient_checkpointing: true
+  log_interval: 25
+
+generation:
+  max_new_tokens: 120
+  temperature: 0.6
+  top_p: 0.85
+  repetition_penalty: 1.1

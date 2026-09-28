@@ -1,0 +1,47 @@
+# Exploratory instruction-language-model run for the RTX 4070 (8 GB).
+experiment:
+  objective: instruction_language_model
+  status: exploratory
+  baseline: bb8-char-small-v002
+  change: Dolly 15K chat data, BPE tokenization, larger Transformer
+
+model:
+  d_model: 256
+  num_layers: 6
+  num_heads: 8
+  d_ff: 1024
+  max_seq_len: 256
+  dropout: 0.1
+  activation: gelu
+  tie_weights: true
+
+tokenizer:
+  type: bpe
+  vocab_size: 1024
+  training_chars: 2000000
+
+training:
+  batch_size: 24
+  num_epochs: 8
+  lr: 5.0e-4
+  weight_decay: 0.1
+  max_grad_norm: 1.0
+  warmup_steps: 100
+  mixed_precision: true
+  log_interval: 20
+  eval_interval: 0
+  save_interval: 1000
+
+data:
+  seq_len: 256
+  stride: 128
+  val_fraction: 0.1
+  record_separator: "\n\n"
+  manifest: data/manifests/dolly_15k.json
+
+generation:
+  max_new_tokens: 120
+  temperature: 0.7
+  top_k: 40
+  top_p: 0.9
+  repetition_penalty: 1.15

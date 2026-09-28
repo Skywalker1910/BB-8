@@ -16,9 +16,11 @@ At training time, the causal mask ensures that the model cannot "cheat" by looki
 
 ```
 Raw text file
-    ↓  CharTokenizer / WordTokenizer / BPETokenizer
+    ↓  sequential raw-text split
+Training text  +  Validation text
+    ↓  fit CharTokenizer / WordTokenizer / BPETokenizer on training text only
 Flat list of token IDs  [t₁, t₂, t₃, …, tₙ]
-    ↓  TextDataset(seq_len=256)
+    ↓  TextDataset(seq_len=256, stride=1)
 Overlapping windows:
     Input:  [t₁, t₂, …, t₂₅₆]
     Target: [t₂, t₃, …, t₂₅₇]
@@ -26,11 +28,13 @@ Overlapping windows:
     Input:  [t₂, t₃, …, t₂₅₇]
     Target: [t₃, t₄, …, t₂₅₈]
     ...
-    ↓  create_train_val_split(val_fraction=0.1)
 Train DataLoader  +  Val DataLoader
 ```
 
-The training and validation sets are split **sequentially**, not randomly, to preserve temporal order.
+The raw corpus is split **sequentially before tokenizer training**, not randomly.
+This prevents validation-only vocabulary or BPE merge rules from leaking into
+training. `stride=1` reproduces the densely overlapping baseline; larger
+strides reduce training time on larger corpora.
 
 ---
 
@@ -163,3 +167,29 @@ Starting perplexity for a character-level model with vocab_size=65:
 - **Well-trained:** PPL 5–15 (state of the art for domain-specific data)
 
 Perplexity is bounded below by the true entropy of the language — even a perfect model cannot achieve PPL = 1 because natural language has genuine uncertainty.
+
+---
+
+## LoRA Fine-Tuning Track
+
+In addition to the from-scratch training pipeline above, BB8 includes a second
+track that fine-tunes a pretrained model using LoRA (Low-Rank Adaptation).
+This is handled by `fine_tune.py` and uses HuggingFace Transformers + PEFT.
+
+The key differences from the from-scratch pipeline:
+
+| Aspect | From-scratch (`train.py`) | LoRA (`fine_tune.py`) |
+|---|---|---|
+| Model | My own BB8LM implementation | Pretrained Qwen2.5-0.5B |
+| Trainable params | All parameters | Only LoRA adapter (~1.75%) |
+| Tokenizer | My char/word/BPE tokenizers | HuggingFace AutoTokenizer |
+| Loss masking | All tokens | Assistant tokens only (`labels=-100` for prompts) |
+| Dataset | Plain text windows | Instruction/response pairs (JSONL) |
+| Precision | float32 or float16 | bfloat16 |
+
+Both tracks use AdamW, cosine LR scheduling, gradient clipping, and the same
+experiment tracking system (JSONL registry with dataset hashes and Git info).
+
+The from-scratch track (v001–v007) demonstrates understanding of the
+architecture. The LoRA track (v004, v005, v008) demonstrates the industry
+workflow for adapting pretrained models on limited hardware.

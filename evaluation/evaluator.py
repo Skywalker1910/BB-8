@@ -16,9 +16,10 @@ Perplexity
     Lower is better.  Well-trained character-level models typically achieve
     PPL < 5 on their training domain.
 
-Bits per Character (BPC)
-    Cross-entropy measured in bits (divide nats by log(2)).
-    BPC < 1.5 is a reasonable target for character-level English text.
+Bits per Token / Character (BPT / BPC)
+    Cross-entropy measured in bits is BPT. BPC additionally normalises by the
+    tokenizer's token-to-character ratio, allowing careful cross-tokenizer
+    comparisons on the same corpus.
 
 Token Accuracy
     The fraction of positions where argmax(logits) == target.
@@ -68,36 +69,43 @@ class Evaluator:
 
         Returns
         -------
-        dict with keys: loss, perplexity, accuracy, bits_per_char
+        dict with keys: loss, perplexity, accuracy, bits_per_token,
+        bits_per_char
         """
         self.model.eval()
 
-        total_loss = 0.0
+        total_nll = 0.0
         total_correct = 0
         total_tokens = 0
-        n_batches = 0
-
         for x, y in dataloader:
             x, y = x.to(self.device), y.to(self.device)
             output = self.model(x, targets=y)
 
-            total_loss += output["loss"].item()
-            n_batches += 1
-
             # Token-level accuracy
             preds = output["logits"].argmax(dim=-1)
             valid = y != -1
+            valid_count = valid.sum().item()
+            total_nll += output["loss"].item() * valid_count
             total_correct += (preds[valid] == y[valid]).sum().item()
-            total_tokens += valid.sum().item()
+            total_tokens += valid_count
 
-        avg_loss = total_loss / max(n_batches, 1)
+        avg_loss = total_nll / max(total_tokens, 1)
         accuracy = total_correct / max(total_tokens, 1)
+        bits_per_token = avg_loss / math.log(2)
+
+        dataset = dataloader.dataset
+        corpus_tokens = getattr(dataset, "n_tokens", None)
+        corpus_characters = getattr(dataset, "n_characters", None)
+        bits_per_char = None
+        if corpus_tokens is not None and corpus_characters:
+            bits_per_char = bits_per_token * corpus_tokens / corpus_characters
 
         return {
             "loss": avg_loss,
             "perplexity": math.exp(avg_loss),
             "accuracy": accuracy,
-            "bits_per_char": avg_loss / math.log(2),
+            "bits_per_token": bits_per_token,
+            "bits_per_char": bits_per_char,
         }
 
     # ------------------------------------------------------------------
@@ -114,7 +122,7 @@ class Evaluator:
 
         Returns
         -------
-        dict with keys: loss, perplexity, bits_per_char
+        dict with keys: loss, perplexity, bits_per_token, bits_per_char
         """
         token_ids = self.tokenizer.encode(text)
         max_len = self.model.max_seq_len
@@ -136,10 +144,14 @@ class Evaluator:
             n_chunks += 1
 
         avg_loss = total_loss / max(n_chunks, 1)
+        bits_per_token = avg_loss / math.log(2)
         return {
             "loss": avg_loss,
             "perplexity": math.exp(avg_loss),
-            "bits_per_char": avg_loss / math.log(2),
+            "bits_per_token": bits_per_token,
+            "bits_per_char": (
+                bits_per_token * len(token_ids) / len(text) if text else None
+            ),
         }
 
     # ------------------------------------------------------------------

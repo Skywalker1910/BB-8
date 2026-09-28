@@ -1,0 +1,39 @@
+experiment:
+  objective: evidence_grounded_answering
+  status: experimental_not_promoted
+  baseline: Qwen2.5-0.5B-Instruct
+  change: native-chat assistant-only LoRA on synthetic evidence/citation/abstention examples
+base_model:
+  id: Qwen/Qwen2.5-0.5B-Instruct
+  revision: 7ae557604adf67be50417f59c2c2f167def9a775
+  license: Apache-2.0
+  cache_dir: .cache/huggingface
+data:
+  path: data/grounded_v1/train.jsonl
+  validation_path: data/grounded_v1/validation.jsonl
+  manifest: data/grounded_v1/manifest.json
+  preprocessing: chat_full_v1
+  seed: 42
+  max_length: 768
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [q_proj, v_proj]
+training:
+  epochs: 3
+  batch_size: 2
+  eval_batch_size: 2
+  gradient_accumulation_steps: 4
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  max_grad_norm: 1.0
+  precision: bf16
+  gradient_checkpointing: true
+  log_interval: 10
+generation:
+  max_new_tokens: 96
+  temperature: 0.6
+  top_p: 0.9
+  repetition_penalty: 1.0

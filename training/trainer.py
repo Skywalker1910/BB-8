@@ -56,6 +56,7 @@ class Trainer:
     eval_interval  : int            — evaluate on val set every N steps
     save_interval  : int            — save checkpoint every N steps
     device         : str | None     — 'cuda', 'cpu', or None (auto-detect)
+    mixed_precision: bool           — use float16 autocast on CUDA
     """
 
     def __init__(
@@ -73,6 +74,7 @@ class Trainer:
         eval_interval: int = 100,
         save_interval: int = 500,
         device: Optional[str] = None,
+        mixed_precision: bool = False,
     ) -> None:
         # Device selection
         if device is None:
@@ -88,6 +90,7 @@ class Trainer:
         self.log_interval = log_interval
         self.eval_interval = eval_interval
         self.save_interval = save_interval
+        self.use_amp = mixed_precision and self.device.type == "cuda"
 
         # Optimizer — separate param groups for weight decay
         self.optimizer = self._build_optimizer(lr, weight_decay)
@@ -100,6 +103,7 @@ class Trainer:
         self.scheduler = get_cosine_schedule_with_warmup(
             self.optimizer, warmup_steps, max_steps
         )
+        self.scaler = torch.amp.GradScaler("cuda", enabled=self.use_amp)
 
         # State tracking
         self.global_step: int = 0
@@ -112,6 +116,7 @@ class Trainer:
 
         print(
             f"Trainer ready  |  device={self.device}"
+            f"  amp={self.use_amp}"
             f"  |  peak_lr={lr}  warmup={warmup_steps}  max_steps={max_steps}"
         )
 
@@ -147,18 +152,25 @@ class Trainer:
     def train_step(self, batch) -> float:
         """Perform one gradient update. Returns the scalar loss."""
         self.model.train()
-        x, y = [t.to(self.device) for t in batch]
+        x, y = [t.to(self.device, non_blocking=True) for t in batch]
 
-        self.optimizer.zero_grad()
-        output = self.model(x, targets=y)
-        loss: torch.Tensor = output["loss"]
-        loss.backward()
+        self.optimizer.zero_grad(set_to_none=True)
+        with torch.autocast(
+            device_type=self.device.type,
+            dtype=torch.float16,
+            enabled=self.use_amp,
+        ):
+            output = self.model(x, targets=y)
+            loss: torch.Tensor = output["loss"]
+        self.scaler.scale(loss).backward()
 
         # Clip gradients to prevent exploding updates
         if self.max_grad_norm > 0:
+            self.scaler.unscale_(self.optimizer)
             nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
 
-        self.optimizer.step()
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
         self.scheduler.step()
 
         return loss.item()
@@ -178,7 +190,8 @@ class Trainer:
         n_batches = 0
 
         for x, y in self.val_loader:
-            x, y = x.to(self.device), y.to(self.device)
+            x = x.to(self.device, non_blocking=True)
+            y = y.to(self.device, non_blocking=True)
             output = self.model(x, targets=y)
             total_loss += output["loss"].item()
             n_batches += 1
@@ -241,7 +254,7 @@ class Trainer:
                 current_lr = self.optimizer.param_groups[0]["lr"]
 
                 # Periodic logging
-                if self.global_step % self.log_interval == 0:
+                if self.log_interval > 0 and self.global_step % self.log_interval == 0:
                     pbar.set_postfix(
                         {
                             "loss": f"{loss:.4f}",
@@ -253,6 +266,7 @@ class Trainer:
                 # Periodic validation
                 if (
                     self.val_loader is not None
+                    and self.eval_interval > 0
                     and self.global_step % self.eval_interval == 0
                 ):
                     metrics = self.evaluate()
@@ -268,7 +282,7 @@ class Trainer:
                         self.save_checkpoint("best_model.pt")
 
                 # Periodic checkpoint
-                if self.global_step % self.save_interval == 0:
+                if self.save_interval > 0 and self.global_step % self.save_interval == 0:
                     self.save_checkpoint(f"checkpoint_step_{self.global_step}.pt")
 
             # End-of-epoch summary
@@ -289,6 +303,9 @@ class Trainer:
                 history["val_loss"].append(val_loss)
                 history["perplexity"].append(ppl)
                 epoch_msg += f"  val_loss={val_loss:.4f}  val_ppl={ppl:.1f}"
+                if val_loss < self.best_val_loss:
+                    self.best_val_loss = val_loss
+                    self.save_checkpoint("best_model.pt")
 
             print(f"\n{epoch_msg}\n")
 
@@ -312,6 +329,7 @@ class Trainer:
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "scheduler_state_dict": self.scheduler.state_dict(),
+                "scaler_state_dict": self.scaler.state_dict(),
                 "best_val_loss": self.best_val_loss,
                 "model_config": (
                     self.model.get_config()
@@ -321,7 +339,7 @@ class Trainer:
             },
             path,
         )
-        print(f"  ✓ checkpoint saved → {path}")
+        print(f"  [ok] checkpoint saved -> {path}")
 
     def load_checkpoint(self, path: str) -> None:
         """Restore training state from a checkpoint file."""
@@ -329,11 +347,13 @@ class Trainer:
         self.model.load_state_dict(ckpt["model_state_dict"])
         self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         self.scheduler.load_state_dict(ckpt["scheduler_state_dict"])
+        if "scaler_state_dict" in ckpt:
+            self.scaler.load_state_dict(ckpt["scaler_state_dict"])
         self.global_step = ckpt["global_step"]
         self.current_epoch = ckpt["current_epoch"]
         self.best_val_loss = ckpt["best_val_loss"]
         print(
-            f"Loaded checkpoint ← {path}"
+            f"Loaded checkpoint <- {path}"
             f"  (step={self.global_step}  epoch={self.current_epoch})"
         )
 
@@ -341,4 +361,4 @@ class Trainer:
         path = os.path.join(self.checkpoint_dir, "training_history.json")
         with open(path, "w") as fh:
             json.dump(history, fh, indent=2)
-        print(f"  ✓ training history → {path}")
+        print(f"  [ok] training history -> {path}")

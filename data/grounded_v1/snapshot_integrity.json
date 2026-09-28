@@ -1,0 +1,5 @@
+{
+  "note": "Supplementary stored-file hashes. Source hashes in manifest.json describe fetched UTF-8 text; README snapshot uses Windows line endings on disk. Corpus/split manifest is unchanged.",
+  "homepage.snapshot.txt": "2f49b2fa913f0ffb9a163d292d0be0f6a82529f1c008911423c27f6dd0647677",
+  "portfolio-readme.snapshot.txt": "615aeaa8a367af92acc384b3c22710dad2eef1eaef0a3c977069238287e7897c"
+}

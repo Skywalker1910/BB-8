@@ -178,5 +178,12 @@ class TestBPETokenizer:
             tok2 = BPETokenizer()
             tok2.load(path)
             assert tok2.vocab == tok.vocab
+            assert tok2.merges == tok.merges
+            assert tok2.encode(SAMPLE_TEXT) == tok.encode(SAMPLE_TEXT)
         finally:
             os.unlink(path)
+
+    def test_merge_matches_complete_symbols_only(self):
+        word_vocab = {"xa b </w>": 1}
+        merged = BPETokenizer._apply_merge(("a", "b"), word_vocab)
+        assert merged == word_vocab

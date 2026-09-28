@@ -77,7 +77,9 @@ class TextGenerator:
         top_k: int = 50,
         top_p: float = 0.9,
         repetition_penalty: float = 1.1,
-    ) -> str:
+        return_full_text: bool = True,
+        return_details: bool = False,
+    ) -> str | dict:
         """
         Generate text conditioned on *prompt*.
 
@@ -91,6 +93,8 @@ class TextGenerator:
         top_p             : cumulative probability threshold for nucleus sampling
         repetition_penalty: factor by which recently generated tokens are
                             penalised (1.0 = no penalty; >1.0 discourages repetition)
+        return_full_text   : include the input prompt when True; otherwise return
+                             only newly generated text
 
         Returns
         -------
@@ -138,7 +142,16 @@ class TextGenerator:
             if next_token == eos_id:
                 break
 
-        return self.tokenizer.decode(generated)
+        output_ids = generated if return_full_text else generated[len(input_ids) :]
+        text = self.tokenizer.decode(output_ids)
+        continuation = generated[len(input_ids):]
+        if return_details:
+            return {"text": text, "generated_tokens": len(continuation),
+                    "stop_reason": "eos" if continuation and continuation[-1] == eos_id else "length"}
+        return text
+
+    def generate_with_details(self, **kwargs) -> dict:
+        return self.generate(**kwargs, return_details=True)
 
     # ------------------------------------------------------------------
     # Decoding strategies

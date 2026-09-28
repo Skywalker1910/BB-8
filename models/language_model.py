@@ -83,6 +83,9 @@ class BB8LM(nn.Module):
         self.num_heads = num_heads
         self.d_ff = d_ff
         self.max_seq_len = max_seq_len
+        self.dropout = dropout
+        self.activation = activation
+        self.tie_weights = tie_weights
 
         # --- Embedding layers ---
         self.token_embedding = TokenEmbedding(vocab_size, d_model)
@@ -219,4 +222,7 @@ class BB8LM(nn.Module):
             "num_heads": self.num_heads,
             "d_ff": self.d_ff,
             "max_seq_len": self.max_seq_len,
+            "dropout": self.dropout,
+            "activation": self.activation,
+            "tie_weights": self.tie_weights,
         }
