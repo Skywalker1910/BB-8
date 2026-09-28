@@ -1,0 +1,53 @@
+# v008a — Quick test: smaller LoRA rank, 1 epoch
+# Goal: check if rank=8 is enough before committing to rank=16 and 2 epochs
+experiment:
+  objective: supervised_instruction_fine_tuning
+  status: completed
+  baseline: bb8-qwen-lora-v004-dev
+  change: instruction-tuned base, rank 8, 1 epoch, 512 context
+
+base_model:
+  id: Qwen/Qwen2.5-0.5B-Instruct
+  revision: 7ae557604adf67be50417f59c2c2f167def9a775
+  license: Apache-2.0
+  cache_dir: .cache/huggingface
+
+data:
+  preprocessing: full_example_v2
+  path: data/databricks-dolly-15k.jsonl
+  manifest: data/manifests/dolly_15k.json
+  validation_fraction: 0.05
+  seed: 42
+  max_length: 512
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  epochs: 1
+  batch_size: 4
+  eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+  precision: bf16
+  gradient_checkpointing: true
+  log_interval: 25
+
+generation:
+  max_new_tokens: 120
+  temperature: 0.6
+  top_p: 0.85
+  repetition_penalty: 1.1

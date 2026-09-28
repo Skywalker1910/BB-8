@@ -20,12 +20,14 @@ training:
   weight_decay: 0.1
   max_grad_norm: 1.0
   warmup_steps: 200
+  mixed_precision: true
   log_interval: 10
   eval_interval: 200
   save_interval: 1000
 
 data:
   seq_len: 512
+  stride: 1
   val_fraction: 0.1
 
 generation:

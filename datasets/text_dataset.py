@@ -16,10 +16,12 @@ TextDataset
 FileTextDataset
     Convenience subclass that reads from a file path.
 
-Utility
--------
+Utilities
+---------
+split_text(text, val_fraction)
+    Split raw text before tokenizer training to avoid validation leakage.
 create_train_val_split(dataset, val_fraction)
-    Sequential train/val split that preserves temporal order.
+    Backward-compatible sequential split for an existing dataset.
 """
 
 import os
@@ -45,6 +47,9 @@ class TextDataset(Dataset):
         A trained tokenizer with an ``encode`` method.
     seq_len : int
         Context window length (number of input tokens per sample).
+    stride : int
+        Number of tokens between the start of adjacent samples. A stride of
+        one creates maximally overlapping windows; larger values train faster.
 
     Notes
     -----
@@ -53,9 +58,21 @@ class TextDataset(Dataset):
     This is standard practice for character/token-level LM training.
     """
 
-    def __init__(self, text: str, tokenizer, seq_len: int = 256) -> None:
+    def __init__(
+        self,
+        text: str,
+        tokenizer,
+        seq_len: int = 256,
+        stride: int = 1,
+    ) -> None:
+        if seq_len < 1:
+            raise ValueError("seq_len must be positive")
+        if stride < 1:
+            raise ValueError("stride must be positive")
         self.seq_len = seq_len
+        self.stride = stride
         self.tokenizer = tokenizer
+        self.n_characters = len(text)
 
         # Encode the entire corpus into a flat list of token IDs
         self.token_ids: list = tokenizer.encode(text)
@@ -64,12 +81,15 @@ class TextDataset(Dataset):
         print(
             f"TextDataset  |  tokens={self.n_tokens:,}"
             f"  seq_len={seq_len}"
+            f"  stride={stride}"
             f"  samples={len(self):,}"
         )
 
     def __len__(self) -> int:
-        # Each sample needs seq_len tokens for input + 1 for the target
-        return max(0, self.n_tokens - self.seq_len)
+        # Each sample needs seq_len tokens for input + 1 for the target.
+        if self.n_tokens <= self.seq_len:
+            return 0
+        return 1 + (self.n_tokens - self.seq_len - 1) // self.stride
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -78,7 +98,8 @@ class TextDataset(Dataset):
         input  = token_ids[idx : idx + seq_len]
         target = token_ids[idx + 1 : idx + seq_len + 1]
         """
-        chunk = self.token_ids[idx : idx + self.seq_len + 1]
+        start = idx * self.stride
+        chunk = self.token_ids[start : start + self.seq_len + 1]
         x = torch.tensor(chunk[:-1], dtype=torch.long)
         y = torch.tensor(chunk[1:], dtype=torch.long)
         return x, y
@@ -98,7 +119,13 @@ class FileTextDataset(TextDataset):
         Context window length.
     """
 
-    def __init__(self, file_path: str, tokenizer, seq_len: int = 256) -> None:
+    def __init__(
+        self,
+        file_path: str,
+        tokenizer,
+        seq_len: int = 256,
+        stride: int = 1,
+    ) -> None:
         if not os.path.isfile(file_path):
             raise FileNotFoundError(f"Training data not found: {file_path}")
         with open(file_path, "r", encoding="utf-8") as fh:
@@ -107,7 +134,36 @@ class FileTextDataset(TextDataset):
         print(
             f"Loaded '{file_path}'  |  {len(text):,} chars  ({file_size_mb:.2f} MB)"
         )
-        super().__init__(text, tokenizer, seq_len)
+        super().__init__(text, tokenizer, seq_len, stride)
+
+
+def split_text(
+    text: str,
+    val_fraction: float = 0.1,
+    record_separator: str | None = None,
+) -> Tuple[str, str]:
+    """Sequentially split raw text before fitting the tokenizer.
+
+    Fitting the tokenizer on only ``train_text`` prevents BPE merges and word
+    vocabulary entries from learning information from the validation corpus.
+    When supplied, ``record_separator`` moves the boundary to the end of a
+    complete record so instruction/response pairs are not divided across sets.
+    """
+
+    if not 0.0 < val_fraction < 1.0:
+        raise ValueError("val_fraction must be between 0 and 1")
+    split_index = int(len(text) * (1.0 - val_fraction))
+    if record_separator:
+        next_boundary = text.find(record_separator, split_index)
+        if next_boundary >= 0:
+            split_index = next_boundary + len(record_separator)
+        else:
+            previous_boundary = text.rfind(record_separator, 0, split_index)
+            if previous_boundary >= 0:
+                split_index = previous_boundary + len(record_separator)
+    if split_index < 2 or len(text) - split_index < 2:
+        raise ValueError("Text is too short for the requested train/validation split")
+    return text[:split_index], text[split_index:]
 
 
 def create_train_val_split(

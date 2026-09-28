@@ -1,0 +1,17 @@
+{
+  "grounded-base": {
+    "label": "Grounded Qwen — unchanged baseline + evidence",
+    "model_dir": "deployment/qwen-grounded-baseline",
+    "origin": "external_pretrained"
+  },
+  "grounded-lora": {
+    "label": "BB8 v005 pilot — our LoRA + evidence (experimental)",
+    "model_dir": "checkpoints/bb8-grounded-v005-pilot",
+    "origin": "local_fine_tune_not_promoted"
+  },
+  "qwen-instruct": {
+    "label": "Qwen Instruct — external baseline (recommended)",
+    "model_dir": "deployment/qwen-instruct-baseline",
+    "origin": "external_pretrained"
+  }
+}

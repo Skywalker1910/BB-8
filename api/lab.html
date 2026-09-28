@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BB8 Lab · Inside the next token</title>
+  <link rel="stylesheet" href="/lab.css">
+  <link rel="stylesheet" href="/help.css">
+  <script src="/help.js" defer></script>
+  <script src="/lab.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/lab"><span class="orb">BB</span><span>BB8 <b>LAB</b><small>Inside the next token</small></span></a>
+    <nav aria-label="Lab sections">
+      <button class="tab active" data-panel="playground" aria-pressed="true">Playground</button>
+      <button class="tab" data-panel="dataset" aria-pressed="false">Dataset</button>
+      <button class="tab" data-panel="experiments" aria-pressed="false">Experiments</button>
+      <a href="/chat">Chat ↗</a>
+    </nav>
+    <span id="status" role="status">Connecting…</span>
+  </header>
+
+  <div class="workspace">
+    <aside>
+      <div class="eyebrow">01 / MODEL & DECODING</div>
+      <p class="muted">Hover, focus or tap an ⓘ for a control’s meaning and effect.</p>
+      <label for="apiKey">Local API key</label><input id="apiKey" type="password" value="local-test-key" autocomplete="off">
+      <button id="connect">Connect / reload models</button>
+      <label for="modelSelect">Trained model</label><select id="modelSelect"></select>
+      <p id="modelSummary" class="muted"></p>
+      <details><summary>Training record</summary><pre id="modelRecord"></pre></details>
+      <hr>
+      <label for="strategy">Token selection</label>
+      <select id="strategy"><option value="top_p">Top-P · nucleus sampling</option><option value="top_k">Top-K · fixed candidate count</option><option value="temperature">Temperature · full vocabulary</option><option value="greedy">Greedy · highest score</option></select>
+      <p id="strategyHint" class="control-hint" aria-live="polite"></p>
+      <label for="temperature">Temperature <output id="temperatureValue">0.80</output></label>
+      <input id="temperature" type="range" min="0.05" max="2" step="0.05" value="0.8">
+      <label for="topP">Top-P threshold <output id="topPValue">0.90</output></label>
+      <input id="topP" type="range" min="0.01" max="1" step="0.01" value="0.9">
+      <label for="topK">Top-K candidates</label><input id="topK" type="number" min="1" max="200000" value="40">
+      <label for="penalty">Repetition penalty <output id="penaltyValue">1.00</output></label>
+      <input id="penalty" type="range" min="1" max="2" step="0.05" value="1">
+      <div class="two"><div><label for="seed">Random seed</label><input id="seed" type="number" min="0" max="4294967295" value="42"></div><div><label for="contextWindow">Context tokens</label><input id="contextWindow" type="number" min="1" max="256" value="256"></div></div>
+      <p class="note">These controls affect inference. Learning rate, layers and LoRA rank belong to a new training experiment.</p>
+      <label for="batchSteps">Tokens per run</label><input id="batchSteps" type="number" min="1" max="32" value="8">
+      <p class="muted">A local run can generate up to 64 tokens. Seed + step number makes each draw replayable on the same runtime.</p>
+    </aside>
+
+    <main>
+      <div id="error" class="error" role="alert" hidden></div>
+      <section id="playground" class="panel">
+        <div class="section-head"><div><div class="eyebrow">02 / EXPLORE A PREDICTION</div><h1>What comes next?</h1><p class="muted">Hold the text fixed. Change one control. Watch the candidate probabilities change.</p></div><span class="pill">Live model weights</span></div>
+        <div class="card">
+          <div class="row"><label for="prompt">Your input</label><div class="prompt-format"><label for="promptMode">Prompt format</label><select id="promptMode"><option value="raw">Raw text continuation</option><option value="instruction">Instruction / chat wrapper</option></select></div></div>
+          <textarea id="prompt" rows="3" spellcheck="false">The capital of France is</textarea>
+          <div class="examples"><span>Try a prompt</span><button type="button" data-example="fact">General knowledge</button><button type="button" data-example="math">Arithmetic</button><button type="button" data-example="ambiguous">One-word input</button><button type="button" data-example="continuation">Text continuation</button></div>
+          <div class="actions"><button id="prepare" class="primary">Inspect prompt</button><button id="refresh">Recalculate next token</button><span id="inputMeta" class="muted">Start with a prompt to inspect its tokens.</span></div>
+          <details><summary>Exact formatted input & token IDs</summary><pre id="formattedInput"></pre><div id="inputTokens" class="tokens"></div></details>
+        </div>
+
+        <div class="card output-card">
+          <div class="row"><div class="eyebrow">03 / GENERATED CONTINUATION</div><span id="stepCount" class="muted">0 / 64 tokens</span></div>
+          <p id="output" class="output">Your generated text will appear here.</p>
+          <div id="generatedTokens" class="tokens"></div>
+          <div class="actions"><button id="sample" class="primary">Generate one token</button><button id="generateMany">Run selected count</button><button id="undo">Undo token</button><button id="restart">Restart</button></div>
+          <p class="muted">Click a generated token to return to that point and explore another continuation. Gold tokens were chosen manually.</p>
+        </div>
+
+        <div class="card">
+          <div class="row"><div><div class="eyebrow">04 / THE NEXT-TOKEN DISTRIBUTION</div><h2>Scores → controls → selection</h2></div><span id="previewLabel" class="pill">No prediction yet</span></div>
+          <p class="muted">Blue: model probabilities. Violet: after penalty and temperature. Green: probabilities used for selection. Probability measures token likelihood, not factual truth.</p>
+          <div class="metrics"><div><span data-help-for="eligible">Eligible tokens</span><strong id="eligible">—</strong></div><div><span data-help-for="rawEntropy">Raw entropy · bits</span><strong id="rawEntropy">—</strong></div><div><span data-help-for="selectionEntropy">Selection entropy · bits</span><strong id="selectionEntropy">—</strong></div><div><span data-help-for="contextUsed">Model context</span><strong id="contextUsed">—</strong></div></div>
+          <div class="table-scroll"><table class="prob-table"><thead><tr><th>Token / ID</th><th id="rawLogit" data-help-for="rawLogit">Raw logit</th><th id="modelProbability" data-help-for="modelProbability">Model</th><th id="adjustedProbability" data-help-for="adjustedProbability">Adjusted</th><th id="selectionProbability" data-help-for="selectionProbability">Selection</th><th>Intervene</th></tr></thead><tbody id="candidates"><tr><td colspan="6">Inspect a prompt to see candidates.</td></tr></tbody></table></div>
+          <p id="candidateNote" class="muted"></p>
+          <details><summary>Exactly what the model can see at this step</summary><p id="contextNote"></p><div id="visibleTokens" class="tokens"></div></details>
+          <details><summary>How this lab selects a token</summary><p>The lab applies a sign-aware repetition penalty to tokens in the visible context, then temperature, then Top-K or Top-P. Greedy ignores temperature and puts all selection probability on one token. Filtered tokens have zero selection probability; sampling is weighted, not uniform. Manual choices can deliberately override the filter.</p><p>The lab uses its own versioned sampler, <code>bb8-lab-v1</code>, with a rolling context window and no KV cache. It inspects actual model logits but does not promise identical output or speed to the older chat generator.</p></details>
+        </div>
+
+        <div class="card save-row"><div><h2>Keep this experiment</h2><p class="muted">The server recomputes your steps before saving a verified trace with artifact hashes.</p></div><div><label for="runLabel">Experiment label</label><input id="runLabel" placeholder="e.g. France · temperature 0.8" maxlength="80"></div><button id="save" class="primary">Verify & save</button></div>
+      </section>
+
+      <section id="dataset" class="panel" hidden>
+        <div class="section-head"><div><div class="eyebrow">DATA / DOLLY 15K</div><h1>From a record to training tokens</h1><p class="muted">Browse the data used for BB8 instruction experiments. Split and loss-mask previews below reconstruct v004 specifically.</p></div></div>
+        <div class="card"><p class="note">The model does not look up these records when generating. Dolly is v004's fine-tuning data, not Qwen's entire pretraining corpus.</p><div class="filters"><input id="datasetQuery" aria-label="Search Dolly" placeholder="Search instructions, context or responses…"><select id="datasetCategory" aria-label="Category"><option value="">All categories</option></select><select id="datasetSplit" aria-label="v004 split"><option value="">All v004 splits</option><option value="train">Training</option><option value="validation">Validation</option></select><button id="searchData" class="primary">Search</button></div><p id="datasetMeta" class="muted"></p><details><summary>Dataset source, hashes & license</summary><pre id="datasetManifest"></pre></details></div>
+        <div class="dataset-grid"><div class="card"><div id="datasetRows"></div><div class="actions"><button id="prevPage">Previous</button><button id="nextPage">Next</button></div></div><div class="card" id="examplePanel"><p class="muted">Select a record to inspect it.</p></div></div>
+      </section>
+
+      <section id="experiments" class="panel" hidden>
+        <div class="section-head"><div><div class="eyebrow">EXPERIMENTS / REPLAY & COMPARE</div><h1>Make changes measurable</h1><p class="muted">Saved inference runs are separate from training versions. Compare the same prompt across settings or model checkpoints.</p></div><button id="refreshRuns">Refresh</button></div>
+        <div class="card"><div class="two"><div><label for="leftRun">Experiment A</label><select id="leftRun"></select></div><div><label for="rightRun">Experiment B</label><select id="rightRun"></select></div></div><div class="actions"><button id="compare" class="primary">Compare</button><button id="replay">Replay A</button><button id="useSetup">Use A's initial setup</button><button id="exportRun">Export A as JSON</button></div><p id="replayResult" role="status" class="muted"></p></div>
+        <div id="comparison" class="two"></div>
+      </section>
+      <footer>BB8 Lab · local research playground · Probabilities describe text prediction, not certainty about the world.</footer>
+    </main>
+  </div>
+</body>
+</html>

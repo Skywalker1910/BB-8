@@ -1,0 +1,7 @@
+# Optional dependencies for pretrained-model LoRA experiments.
+# Install after requirements.txt; PyTorch is supplied by the project environment.
+transformers>=4.45,<5
+peft>=0.13,<1
+accelerate>=1,<2
+safetensors>=0.4,<1
+truststore>=0.10,<1

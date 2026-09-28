@@ -20,17 +20,25 @@ venv/
 *.ipynb_checkpoints
 
 # Model checkpoints & outputs (large files)
-checkpoints/*.pt
-checkpoints/*.pth
-outputs/
+checkpoints/**
+!checkpoints/.gitkeep
+outputs/**
+.cache/
+deployment/model/**
+!deployment/model/.gitkeep
+deployment/certs/**
+!deployment/certs/.gitkeep
 
 # Data (raw text files can be large)
 data/*.txt
 data/*.json
+data/*.jsonl
+data/*.parquet
 data/*.csv
 
 # Experiment artifacts
 experiments/results/
+.aws-sam/
 
 # IDE
 .vscode/settings.json

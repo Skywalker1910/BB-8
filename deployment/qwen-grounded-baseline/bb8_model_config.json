@@ -1,0 +1,13 @@
+{
+  "model_name": "qwen2.5-0.5b-instruct-grounded-baseline",
+  "backend": "hf_causal_lm",
+  "origin": "external_pretrained",
+  "description": "Unmodified Qwen Instruct; 768-token grounded pipeline comparison budget.",
+  "base_model": {
+    "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+    "cache_dir": ".cache/huggingface"
+  },
+  "max_context_tokens": 768,
+  "prompt_style": "chat_template"
+}

@@ -1,0 +1,34 @@
+{
+  "version": "grounded-v1",
+  "created_at": "2026-09-27T19:24:15.106430+00:00",
+  "scope": "BB8 repo and user-authorized public portfolio/GitHub; agent-curated summaries require human review",
+  "training": "192 agent-authored synthetic behavior examples; 32 fictional entity groups",
+  "validation": "48 examples; 8 disjoint fictional entity groups; shared template families",
+  "evaluation": "88 reserved repository and portfolio questions; no evaluation answers used in training",
+  "limitations": "Templated small pilot; agent-authored labels, not an independent benchmark. Evaluation corpus intentionally available to retrieval.",
+  "sources": {
+    "models/language_model.py": "f92f7c88c329b8ee6d17090be2987d677173939d31bb97ca743c76228ee6bd24",
+    "inference/generator.py": "f050f707b96303242c9fe5ff5a587bf08c761b1d6c5a588bbabf0c8c4f691aaa",
+    "configs/qwen_lora_v004.yaml": "ff2504acaf5b2b32b91951d36b4b1d4262ce9b232c1184f295636e5abcdb3c7a",
+    "deployment/qwen-instruct-baseline/bb8_model_config.json": "3326ddf95653ac26a28876afb7bf346ba2eb1057eb19d5ef9bdc0d0e379d40d9",
+    "api/handler.py": "20e7d8ae18c357e637357a145517b20d3c9ac572ba4683b90875da894ece37dd",
+    "experiments/tracking.py": "9865953209d81949014177c1ff6609b1ce513dfc939ef0fbbc80f0cbb4d88a34",
+    "api/local_server.py": "61c64a8e0e094fbcfd0aa13f2d8240ddffffeef17361092ad8976e22cc49ba7a",
+    "docs/chat_diagnostic_findings.md": "dd0c09ac60cde450e70d4b10739b4873aef8cbd4a3facdd0b16db07f72ad7e1f",
+    "https://www.adityamore.dev/": "2f49b2fa913f0ffb9a163d292d0be0f6a82529f1c008911423c27f6dd0647677",
+    "https://raw.githubusercontent.com/Skywalker1910/Tech-Portfolio/a17142dbbbc447b08a6072aad40972385cced616/README.md": "f0907e15e9635731551940d8f5dc851795d596beb440ac253542dbf009129e37"
+  },
+  "files": {
+    "corpus.jsonl": "d9777167d29319ccb4d1682b3c3dc579e5f2f2d3164e46c3c113368f013e718d",
+    "evaluation.jsonl": "fc8b062ab6f98eb8da11106e4befff30224e6c94741eeb4e0c0b76b5d1901a81",
+    "train.jsonl": "dd7929a2d22bef3c16026da11671c76bec38b08fd1d92e84a1f539f048c9b167",
+    "validation.jsonl": "5b4ff9999b09c8b171772a25bf61dd7d80bb4ad5740410fff547a8bd722259bd"
+  },
+  "promotion_gates": {
+    "answerable_pass_rate_min": 0.8,
+    "unanswerable_abstention_min": 0.9,
+    "invalid_citations_max": 0,
+    "adapter_must_not_regress_vs_base_rag": true,
+    "human_claim_review_required": true
+  }
+}

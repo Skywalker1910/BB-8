@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.language_model import BB8LM
 from tokenizer import CharTokenizer
-from datasets.text_dataset import TextDataset, create_train_val_split
+from datasets.text_dataset import TextDataset, create_train_val_split, split_text
 from inference.generator import TextGenerator
 
 
@@ -99,6 +99,9 @@ class TestBB8LM:
         assert cfg["vocab_size"] == VOCAB_SIZE
         assert cfg["d_model"] == D_MODEL
         assert cfg["num_layers"] == NUM_LAYERS
+        assert cfg["dropout"] == 0.0
+        assert cfg["activation"] == "gelu"
+        assert cfg["tie_weights"] is True
 
     def test_save_and_load_checkpoint(self, tiny_model):
         x = torch.randint(0, VOCAB_SIZE, (1, 10))
@@ -139,6 +142,30 @@ class TestTextDataset:
         x, y = ds[0]
         # y should equal x shifted left (x[1:] == y[:-1])
         assert torch.all(x[1:] == y[:-1])
+
+    def test_stride_reduces_overlapping_samples(self, tiny_tokenizer):
+        text = "hello world " * 50
+        dense = TextDataset(text, tiny_tokenizer, seq_len=16, stride=1)
+        sparse = TextDataset(text, tiny_tokenizer, seq_len=16, stride=8)
+        assert len(sparse) < len(dense)
+        assert torch.equal(sparse[1][0], dense[8][0])
+
+    def test_raw_text_split_is_disjoint(self):
+        train_text, val_text = split_text("abcdefghij", val_fraction=0.2)
+        assert train_text == "abcdefgh"
+        assert val_text == "ij"
+        assert train_text + val_text == "abcdefghij"
+
+    def test_raw_text_split_can_preserve_record_boundaries(self):
+        text = "first\n\nsecond\n\nthird\n\nfourth"
+        train_text, val_text = split_text(
+            text,
+            val_fraction=0.4,
+            record_separator="\n\n",
+        )
+        assert train_text.endswith("\n\n")
+        assert not val_text.startswith("\n")
+        assert train_text + val_text == text
 
     def test_train_val_split(self, tiny_tokenizer):
         text = "hello world " * 200

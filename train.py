@@ -26,7 +26,7 @@ import os
 import torch
 from torch.utils.data import DataLoader
 
-from datasets.text_dataset import TextDataset, create_train_val_split
+from datasets.text_dataset import TextDataset, split_text
 from evaluation.evaluator import Evaluator
 from inference.generator import TextGenerator
 from models.language_model import BB8LM
@@ -48,10 +48,15 @@ def parse_args():
     p.add_argument("--num-heads", type=int, default=4)
     p.add_argument("--d-ff", type=int, default=512)
     p.add_argument("--seq-len", type=int, default=256)
+    p.add_argument("--stride", type=int, default=1,
+                   help="Tokens between adjacent training windows")
+    p.add_argument("--val-fraction", type=float, default=0.1)
     p.add_argument("--batch-size", type=int, default=32)
     p.add_argument("--epochs", type=int, default=10)
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--dropout", type=float, default=0.1)
+    p.add_argument("--mixed-precision", action="store_true",
+                   help="Use float16 mixed precision when training on CUDA")
     p.add_argument("--checkpoint-dir", default="checkpoints/run")
     p.add_argument("--prompt", default="The ", help="Generation prompt")
     p.add_argument("--max-new-tokens", type=int, default=200)
@@ -85,22 +90,27 @@ def main():
     else:
         tokenizer = BPETokenizer()
 
-    tokenizer.train([text], vocab_size=args.vocab_size)
+    train_text, val_text = split_text(text, args.val_fraction)
+    tokenizer.train([train_text], vocab_size=args.vocab_size)
     vocab_size = tokenizer.get_vocab_size()
 
     # ------------------------------------------------------------------
     # Dataset & DataLoaders
     # ------------------------------------------------------------------
-    dataset = TextDataset(text, tokenizer, seq_len=args.seq_len)
-    train_ds, val_ds = create_train_val_split(dataset, val_fraction=0.1)
+    train_ds = TextDataset(
+        train_text, tokenizer, seq_len=args.seq_len, stride=args.stride
+    )
+    val_ds = TextDataset(
+        val_text, tokenizer, seq_len=args.seq_len, stride=args.stride
+    )
 
     train_loader = DataLoader(
         train_ds, batch_size=args.batch_size, shuffle=True,
-        drop_last=True, num_workers=0
+        drop_last=True, num_workers=0, pin_memory=torch.cuda.is_available()
     )
     val_loader = DataLoader(
         val_ds, batch_size=args.batch_size, shuffle=False,
-        drop_last=True, num_workers=0
+        drop_last=False, num_workers=0, pin_memory=torch.cuda.is_available()
     )
     print(f"Train batches={len(train_loader)}  Val batches={len(val_loader)}")
 
@@ -125,7 +135,9 @@ def main():
         train_loader=train_loader,
         val_loader=val_loader,
         lr=args.lr,
+        max_steps=len(train_loader) * args.epochs,
         checkpoint_dir=args.checkpoint_dir,
+        mixed_precision=args.mixed_precision,
     )
     history = trainer.train(num_epochs=args.epochs)
 

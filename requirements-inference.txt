@@ -1,0 +1,6 @@
+# CPU-only PyTorch is installed from the official PyTorch wheel index in Dockerfile.
+torch==2.13.0+cpu
+transformers>=4.45,<5
+peft>=0.13,<1
+safetensors>=0.4,<1
+truststore>=0.10,<1

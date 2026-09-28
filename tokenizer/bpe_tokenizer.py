@@ -34,6 +34,7 @@ Disadvantages
 - Merge order must be saved and applied consistently at encode time.
 """
 
+import json
 from collections import Counter, defaultdict
 from typing import Dict, List, Tuple
 
@@ -67,6 +68,7 @@ class BPETokenizer(BaseTokenizer):
         super().__init__()
         self.merges: List[Tuple[str, str]] = []
         self.merge_rules: Dict[Tuple[str, str], str] = {}
+        self._word_cache: Dict[str, List[str]] = {}
 
     # ------------------------------------------------------------------
     # Training helpers
@@ -103,11 +105,24 @@ class BPETokenizer(BaseTokenizer):
         pair: Tuple[str, str], word_vocab: Dict[str, int]
     ) -> Dict[str, int]:
         """Replace every occurrence of *pair* in *word_vocab* with a merged token."""
-        bigram = " ".join(pair)
-        replacement = "".join(pair)
         new_vocab: Dict[str, int] = {}
         for word, freq in word_vocab.items():
-            new_vocab[word.replace(bigram, replacement)] = freq
+            symbols = word.split()
+            merged_symbols: List[str] = []
+            i = 0
+            while i < len(symbols):
+                if (
+                    i < len(symbols) - 1
+                    and symbols[i] == pair[0]
+                    and symbols[i + 1] == pair[1]
+                ):
+                    merged_symbols.append("".join(pair))
+                    i += 2
+                else:
+                    merged_symbols.append(symbols[i])
+                    i += 1
+            merged_word = " ".join(merged_symbols)
+            new_vocab[merged_word] = new_vocab.get(merged_word, 0) + freq
         return new_vocab
 
     # ------------------------------------------------------------------
@@ -139,6 +154,7 @@ class BPETokenizer(BaseTokenizer):
         num_merges = vocab_size - len(self.vocab)
         self.merges = []
         self.merge_rules = {}
+        self._word_cache = {}
 
         for i in range(num_merges):
             pairs = self._get_pair_counts(word_vocab)
@@ -208,8 +224,15 @@ class BPETokenizer(BaseTokenizer):
         if add_special_tokens:
             ids.append(self.vocab[self.bos_token])
 
+        # Repeated words are common in language-model corpora. Caching their
+        # segmentation avoids replaying every learned merge for every
+        # occurrence, which makes larger instruction datasets practical.
         for word in text.strip().split():
-            for piece in self._tokenize_word(word):
+            pieces = self._word_cache.get(word)
+            if pieces is None:
+                pieces = self._tokenize_word(word)
+                self._word_cache[word] = pieces
+            for piece in pieces:
                 ids.append(self.vocab.get(piece, unk_id))
 
         if add_special_tokens:
@@ -233,3 +256,24 @@ class BPETokenizer(BaseTokenizer):
         # EOW marks word boundaries — replace with spaces then strip edges
         text = text.replace(self.EOW, " ").strip()
         return text
+
+    def save(self, path: str) -> None:
+        """Persist the vocabulary and ordered BPE merge rules."""
+        data = {
+            "vocab": self.vocab,
+            "merges": [list(pair) for pair in self.merges],
+        }
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        print(f"Tokenizer saved -> {path}  (vocab_size={self.get_vocab_size()})")
+
+    def load(self, path: str) -> None:
+        """Restore the vocabulary and ordered BPE merge rules."""
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        self.vocab = data["vocab"]
+        self._build_inverse_vocab()
+        self.merges = [tuple(pair) for pair in data.get("merges", [])]
+        self.merge_rules = {pair: "".join(pair) for pair in self.merges}
+        self._word_cache = {}
+        print(f"Tokenizer loaded <- {path}  (vocab_size={self.get_vocab_size()})")

@@ -110,7 +110,7 @@ class BaseTokenizer(ABC):
         """Persist the vocabulary to a JSON file."""
         with open(path, "w", encoding="utf-8") as fh:
             json.dump({"vocab": self.vocab}, fh, ensure_ascii=False, indent=2)
-        print(f"Tokenizer saved → {path}  (vocab_size={self.get_vocab_size()})")
+        print(f"Tokenizer saved -> {path}  (vocab_size={self.get_vocab_size()})")
 
     def load(self, path: str) -> None:
         """Restore vocabulary from a JSON file produced by save()."""
@@ -118,7 +118,7 @@ class BaseTokenizer(ABC):
             data = json.load(fh)
         self.vocab = data["vocab"]
         self._build_inverse_vocab()
-        print(f"Tokenizer loaded ← {path}  (vocab_size={self.get_vocab_size()})")
+        print(f"Tokenizer loaded <- {path}  (vocab_size={self.get_vocab_size()})")
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(vocab_size={self.get_vocab_size()})"

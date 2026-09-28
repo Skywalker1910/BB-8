@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: BB8 text-generation API on AWS Lambda and API Gateway
+
+Parameters:
+  ApiKey:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    Description: Value clients must send in the X-API-Key header
+  AllowedOrigin:
+    Type: String
+    Default: "https://www.adityamore.dev"
+    Description: Browser origin allowed by CORS
+
+Resources:
+  BB8HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: "$default"
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+        AllowHeaders:
+          - content-type
+          - x-api-key
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+
+  BB8Function:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: bb8-lambda-v1
+    Properties:
+      PackageType: Image
+      Architectures:
+        - x86_64
+      MemorySize: 2048
+      Timeout: 30
+      ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          BB8_API_KEY: !Ref ApiKey
+          BB8_ALLOWED_ORIGIN: !Ref AllowedOrigin
+          BB8_MAX_NEW_TOKENS: "256"
+          BB8_MAX_PROMPT_CHARS: "2000"
+          BB8_MAX_CHAT_MESSAGES: "50"
+          BB8_MAX_CHAT_CHARS: "8000"
+          BB8_TORCH_THREADS: "1"
+      Events:
+        Health:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BB8HttpApi
+            Path: /health
+            Method: GET
+        Generate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BB8HttpApi
+            Path: /generate
+            Method: POST
+        Chat:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BB8HttpApi
+            Path: /chat
+            Method: POST
+
+Outputs:
+  ApiUrl:
+    Description: Base URL for the BB8 API
+    Value: !Sub "https://${BB8HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"

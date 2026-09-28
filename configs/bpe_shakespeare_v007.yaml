@@ -1,0 +1,45 @@
+# v007 — Tokenizer comparison: BPE on Shakespeare with a larger model
+# Goal: compare BPE vs character tokenization on the same corpus
+experiment:
+  objective: bpe_shakespeare_language_model
+  status: completed
+  baseline: bb8-char-medium-v006
+  change: BPE-3000 tokenizer, d_model 128->256, layers 4->6, context 256->512
+
+model:
+  d_model: 256
+  num_layers: 6
+  num_heads: 8
+  d_ff: 1024
+  max_seq_len: 512
+  dropout: 0.1
+  activation: gelu
+  tie_weights: true
+
+tokenizer:
+  type: bpe
+  vocab_size: 3000
+
+training:
+  batch_size: 16
+  num_epochs: 20
+  lr: 3.0e-4
+  weight_decay: 0.1
+  max_grad_norm: 1.0
+  warmup_steps: 200
+  mixed_precision: true
+  log_interval: 10
+  eval_interval: 200
+  save_interval: 1000
+
+data:
+  seq_len: 512
+  stride: 64
+  val_fraction: 0.1
+
+generation:
+  max_new_tokens: 300
+  temperature: 0.8
+  top_k: 50
+  top_p: 0.9
+  repetition_penalty: 1.1
