@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BB8 Chat — Aditya More</title>
+  <meta name="description" content="Chat with BB8, a Transformer language model built from scratch. Graduate-level LLM engineering project by Aditya More.">
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f3f6f8;
+      --panel: #ffffff;
+      --panel-2: #eaf1f8;
+      --line: #d4dee7;
+      --text: #182d3e;
+      --muted: #536679;
+      --accent: #087f68;
+      --accent-dark: #075f4e;
+      --blue: #2267b2;
+      --danger: #a72e43;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: var(--page); color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    button, input, select, textarea { font: inherit; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 17rem minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    /* --- Sidebar --- */
+    aside {
+      padding: 1.4rem;
+      background: #fbfcfd;
+      border-right: 1px solid var(--line);
+      overflow-y: auto;
+    }
+    .brand { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem; }
+    .droid {
+      display: grid; place-items: center;
+      width: 2.6rem; height: 2.6rem; border-radius: 50%;
+      background: #ffcb75; color: #17110b; font-weight: 900;
+      box-shadow: 0 3px 12px #a6671512;
+    }
+    h1 { margin: 0; font-size: 1.05rem; }
+    .subtitle, .hint, .meta { color: var(--muted); }
+    .subtitle { margin-top: 0.2rem; font-size: 0.78rem; }
+    label { display: block; margin: 1rem 0 0.38rem; color: var(--muted); font-size: 0.78rem; font-weight: 650; }
+    input, select {
+      width: 100%; padding: 0.68rem 0.75rem;
+      border: 1px solid var(--line); border-radius: 0.6rem;
+      background: var(--panel); color: var(--text);
+    }
+    .secondary {
+      width: 100%; margin-top: 1.2rem; padding: 0.7rem;
+      border: 1px solid var(--line); border-radius: 0.6rem;
+      background: transparent; color: var(--text); cursor: pointer;
+    }
+    .secondary:hover { border-color: var(--blue); }
+    .notice {
+      margin-top: 1.5rem; padding: 0.8rem;
+      border: 1px solid var(--line); border-radius: 0.7rem;
+      color: var(--muted); font-size: 0.76rem; line-height: 1.5;
+    }
+    .links { margin-top: 1rem; font-size: 0.82rem; }
+    .links a { display: block; margin-bottom: 0.5rem; color: var(--blue); }
+
+    /* --- Main area --- */
+    main { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; height: 100vh; }
+    header {
+      display: flex; justify-content: space-between; gap: 1rem;
+      padding: 1rem 1.4rem;
+      border-bottom: 1px solid var(--line); background: #ffffff;
+    }
+    #status { font-size: 0.82rem; color: var(--muted); }
+    #status.ready { color: #087f68; }
+    #status.error { color: var(--danger); }
+    #status.loading { color: var(--blue); }
+
+    #messages { overflow-y: auto; padding: 2rem max(1rem, calc((100% - 52rem) / 2)); }
+    .empty { max-width: 34rem; margin: 12vh auto 0; text-align: center; color: var(--muted); line-height: 1.6; }
+    .empty strong { display: block; margin-bottom: 0.6rem; color: var(--text); font-size: 1.35rem; }
+
+    .message { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr); gap: 0.8rem; margin-bottom: 1.35rem; }
+    .avatar {
+      display: grid; place-items: center;
+      width: 2.25rem; height: 2.25rem; border-radius: 0.55rem;
+      background: var(--panel-2); color: var(--blue);
+      font-size: 0.72rem; font-weight: 800;
+    }
+    .message.user .avatar { color: var(--accent); }
+    .role { margin-bottom: 0.3rem; font-size: 0.75rem; font-weight: 750; }
+    .content { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.58; }
+
+    .composer-wrap { padding: 1rem max(1rem, calc((100% - 52rem) / 2)) 1.3rem; background: linear-gradient(transparent, var(--page) 28%); }
+    .composer {
+      display: grid; grid-template-columns: 1fr auto; gap: 0.7rem;
+      padding: 0.65rem; border: 1px solid var(--line); border-radius: 0.9rem;
+      background: var(--panel); box-shadow: 0 5px 24px #20364a0c;
+    }
+    textarea { min-height: 3rem; max-height: 10rem; resize: vertical; padding: 0.65rem; border: 0; outline: 0; background: transparent; color: var(--text); }
+    #send {
+      align-self: end; min-width: 5.2rem; padding: 0.72rem 1rem;
+      border: 0; border-radius: 0.65rem;
+      background: var(--accent); color: #ffffff; font-weight: 800; cursor: pointer;
+    }
+    #send:disabled { cursor: wait; opacity: 0.55; }
+    input:disabled { opacity: 0.6; cursor: not-allowed; }
+    a { color: var(--blue); }
+    .hint { margin: 0.5rem 0 0; text-align: center; font-size: 0.72rem; color: var(--muted); }
+
+    @media (max-width: 760px) {
+      .app { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 40vh; }
+      header { padding-inline: 1rem; }
+      #messages { padding-top: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">
+        <div class="droid">BB</div>
+        <div>
+          <h1>BB8 Chat</h1>
+          <div class="subtitle">Transformer LM Playground</div>
+        </div>
+      </div>
+
+      <label for="strategy">Decoding strategy</label>
+      <select id="strategy">
+        <option value="greedy">Greedy</option>
+        <option value="top_p" selected>Top-P (nucleus)</option>
+        <option value="top_k">Top-K</option>
+        <option value="temperature">Temperature</option>
+      </select>
+
+      <label for="temperature">Temperature</label>
+      <input id="temperature" type="number" value="0.8" min="0.1" max="2" step="0.1">
+
+      <label for="topK">Top-K candidates</label>
+      <input id="topK" type="number" value="40" min="1" max="200000" disabled>
+      <label for="topP">Top-P threshold</label>
+      <input id="topP" type="number" value="0.9" min="0.01" max="1" step="0.01">
+      <label for="penalty">Repetition penalty</label>
+      <input id="penalty" type="number" value="1.1" min="1" max="2" step="0.05">
+
+      <label for="maxTokens">Maximum new tokens</label>
+      <input id="maxTokens" type="number" value="80" min="1" max="256">
+
+      <button id="reset" class="secondary" type="button">New conversation</button>
+
+      <div class="links">
+        <a href="https://github.com/Skywalker1910/BB-8" target="_blank">GitHub Repository</a>
+        <a href="https://huggingface.co/Skywalker1910/BB8" target="_blank">HuggingFace Models</a>
+        <a href="https://www.adityamore.dev" target="_blank">Portfolio</a>
+      </div>
+
+      <div class="notice">
+        BB8 is a small educational model (Qwen 0.5B + LoRA). It answers basic
+        questions but will hallucinate on complex topics. First message may take
+        15-30 seconds while the model loads (cold start).
+        <br><br>
+        Built from scratch by <a href="https://www.adityamore.dev">Aditya More</a>.
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <div>
+          <strong>Chat with BB8</strong>
+          <div id="model" class="meta">Connecting to API...</div>
+        </div>
+        <div id="status">Checking API...</div>
+      </header>
+
+      <section id="messages" aria-live="polite">
+        <div id="empty" class="empty">
+          <strong>Ask BB8 anything</strong>
+          This is a small language model I built as a learning project.
+          It handles basic questions, simple math, and code generation.
+          Try: "What is the capital of France?" or "Write a Python function that adds two numbers."
+          <br><br>
+          <em>First message may take 15-30s while the model loads.</em>
+        </div>
+      </section>
+
+      <div class="composer-wrap">
+        <form id="chatForm" class="composer">
+          <textarea id="prompt" rows="2" placeholder="Ask BB8 a question..." aria-label="Message"></textarea>
+          <button id="send" type="submit">Send</button>
+        </form>
+        <p class="hint">Enter to send &middot; Shift+Enter for a new line</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ---- Configuration ----
+    // Set your Lambda API URL here after deploying with SAM
+    const API_BASE = window.BB8_API_URL || "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com";
+    const API_KEY  = window.BB8_API_KEY || "";
+
+    // ---- State ----
+    const history = [];
+    const $ = (s) => document.querySelector(s);
+    const messagesEl = $("#messages");
+    const emptyEl    = $("#empty");
+    const form       = $("#chatForm");
+    const promptEl   = $("#prompt");
+    const sendBtn    = $("#send");
+    const statusEl   = $("#status");
+    const modelEl    = $("#model");
+    const strategyEl = $("#strategy");
+
+    // ---- Decoding controls ----
+    function updateControls() {
+      const s = strategyEl.value;
+      $("#temperature").disabled = s === "greedy";
+      $("#topK").disabled  = s !== "top_k";
+      $("#topP").disabled  = s !== "top_p";
+    }
+    strategyEl.addEventListener("change", updateControls);
+    updateControls();
+
+    // ---- Messages ----
+    function addMessage(role, content) {
+      emptyEl.hidden = true;
+      const row = document.createElement("article");
+      row.className = "message " + role;
+
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.textContent = role === "user" ? "YOU" : "BB8";
+
+      const body = document.createElement("div");
+      const label = document.createElement("div");
+      label.className = "role";
+      label.textContent = role === "user" ? "You" : "BB8";
+      const text = document.createElement("div");
+      text.className = "content";
+      text.textContent = content;
+
+      body.append(label, text);
+      row.append(avatar, body);
+      messagesEl.append(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return body;
+    }
+
+    // ---- Health check ----
+    async function checkHealth() {
+      try {
+        statusEl.textContent = "Connecting...";
+        statusEl.className = "loading";
+        const r = await fetch(API_BASE + "/health", {
+          headers: API_KEY ? {"x-api-key": API_KEY} : {}
+        });
+        if (!r.ok) throw new Error("API returned " + r.status);
+        const h = await r.json();
+        const state = h.model_loaded ? "ready" : "loads on first message";
+        modelEl.textContent = h.model + " \u00b7 " + state + " \u00b7 " + h.device;
+        statusEl.textContent = "API ready";
+        statusEl.className = "ready";
+      } catch (e) {
+        modelEl.textContent = "Could not reach API";
+        statusEl.textContent = "API offline \u2014 deploy Lambda first";
+        statusEl.className = "error";
+      }
+    }
+
+    // ---- Send message ----
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const message = promptEl.value.trim();
+      if (!message || sendBtn.disabled) return;
+
+      addMessage("user", message);
+      promptEl.value = "";
+      sendBtn.disabled = true;
+      statusEl.textContent = "BB8 is thinking...";
+      statusEl.className = "loading";
+
+      const payload = {
+        messages: [{ role: "user", content: message }],
+        strategy: strategyEl.value,
+        temperature: Number($("#temperature").value),
+        max_new_tokens: Number($("#maxTokens").value),
+        top_k: Number($("#topK").value),
+        top_p: Number($("#topP").value),
+        repetition_penalty: Number($("#penalty").value)
+      };
+
+      try {
+        const r = await fetch(API_BASE + "/chat", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(API_KEY ? {"x-api-key": API_KEY} : {})
+          },
+          body: JSON.stringify(payload)
+        });
+        const result = await r.json();
+        if (!r.ok) throw new Error(result.error || "Generation failed");
+
+        const reply = result.reply || "(no text generated)";
+        history.push(
+          { role: "user", content: message },
+          { role: "assistant", content: reply }
+        );
+        addMessage("assistant", reply);
+        modelEl.textContent = result.model + " \u00b7 " +
+          result.generated_tokens + " tokens \u00b7 " +
+          result.latency_ms + " ms";
+        statusEl.textContent = "API ready";
+        statusEl.className = "ready";
+      } catch (error) {
+        addMessage("assistant", "Error: " + error.message);
+        statusEl.textContent = "Request failed";
+        statusEl.className = "error";
+      } finally {
+        sendBtn.disabled = false;
+        promptEl.focus();
+      }
+    });
+
+    // ---- Keyboard shortcut ----
+    promptEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+    });
+
+    // ---- Reset ----
+    $("#reset").addEventListener("click", () => {
+      history.length = 0;
+      messagesEl.querySelectorAll(".message").forEach(m => m.remove());
+      emptyEl.hidden = false;
+      promptEl.focus();
+    });
+
+    // ---- Init ----
+    checkHealth();
+    promptEl.focus();
+  </script>
+</body>
+</html>
