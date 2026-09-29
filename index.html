@@ -156,6 +156,12 @@
 
       <button id="reset" class="secondary" type="button">New conversation</button>
 
+      <div id="credentials" hidden>
+        <label for="apiKey">Private demo access key</label>
+        <input id="apiKey" type="password" autocomplete="off">
+        <p class="hint">Enter the key provided by the demo owner, then retry.</p>
+      </div>
+
       <div class="links">
         <a href="https://github.com/Skywalker1910/BB-8" target="_blank">GitHub Repository</a>
         <a href="https://huggingface.co/Skywalker1910/BB8" target="_blank">HuggingFace Models</a>
@@ -163,9 +169,9 @@
       </div>
 
       <div class="notice">
-        BB8 is a small educational model (Qwen 0.5B + LoRA). It answers basic
-        questions but will hallucinate on complex topics. First message may take
-        15-30 seconds while the model loads (cold start).
+        This demo runs bb8-char-small-v002, a small character-level Transformer
+        trained on Shakespeare. It generates experimental text, not reliable
+        answers. The first message may take longer while the model loads.
         <br><br>
         Built from scratch by <a href="https://www.adityamore.dev">Aditya More</a>.
       </div>
@@ -182,18 +188,18 @@
 
       <section id="messages" aria-live="polite">
         <div id="empty" class="empty">
-          <strong>Ask BB8 anything</strong>
-          This is a small language model I built as a learning project.
-          It handles basic questions, simple math, and code generation.
-          Try: "What is the capital of France?" or "Write a Python function that adds two numbers."
+          <strong>Explore BB8's text generation</strong>
+          Try a short Shakespeare-style prompt and see what this small model generates.
+          It is a learning project, not an instruction-following assistant.
+          Try: "ROMEO: O, she doth teach the torches to burn bright!"
           <br><br>
-          <em>First message may take 15-30s while the model loads.</em>
+          <em>The first message may take longer while the model loads.</em>
         </div>
       </section>
 
       <div class="composer-wrap">
         <form id="chatForm" class="composer">
-          <textarea id="prompt" rows="2" placeholder="Ask BB8 a question..." aria-label="Message"></textarea>
+          <textarea id="prompt" rows="2" maxlength="2000" placeholder="Enter a short prompt..." aria-label="Message"></textarea>
           <button id="send" type="submit">Send</button>
         </form>
         <p class="hint">Enter to send &middot; Shift+Enter for a new line</p>
@@ -205,7 +211,6 @@
     // ---- Configuration ----
     // Set your Lambda API URL here after deploying with SAM
     const API_BASE = window.BB8_API_URL || "https://ttbp8n17sc.execute-api.us-east-1.amazonaws.com";
-    const API_KEY  = window.BB8_API_KEY || "bb8-prod-cca70acfe06ee69b428e8de1";
 
     // ---- State ----
     const history = [];
@@ -259,19 +264,21 @@
       try {
         statusEl.textContent = "Connecting...";
         statusEl.className = "loading";
-        const r = await fetch(API_BASE + "/health", {
-          headers: API_KEY ? {"x-api-key": API_KEY} : {}
-        });
+        const r = await fetch(API_BASE + "/health", { signal: AbortSignal.timeout(35000) });
         if (!r.ok) throw new Error("API returned " + r.status);
         const h = await r.json();
         const state = h.model_loaded ? "ready" : "loads on first message";
-        modelEl.textContent = h.model + " \u00b7 " + state + " \u00b7 " + h.device;
-        statusEl.textContent = "API ready";
-        statusEl.className = "ready";
+        if (statusEl.textContent === "Connecting...") {
+          modelEl.textContent = h.model + " \u00b7 " + state + " \u00b7 " + h.device;
+          statusEl.textContent = "API ready";
+          statusEl.className = "ready";
+        }
       } catch (e) {
-        modelEl.textContent = "Could not reach API";
-        statusEl.textContent = "API offline \u2014 deploy Lambda first";
-        statusEl.className = "error";
+        if (statusEl.textContent === "Connecting...") {
+          modelEl.textContent = "Could not reach API";
+          statusEl.textContent = "API unavailable \u2014 try again shortly";
+          statusEl.className = "error";
+        }
       }
     }
 
@@ -284,11 +291,16 @@
       addMessage("user", message);
       promptEl.value = "";
       sendBtn.disabled = true;
+      $("#reset").disabled = true;
       statusEl.textContent = "BB8 is thinking...";
       statusEl.className = "loading";
 
+      const messages = [...history, { role: "user", content: message }];
+      while (messages.length > 49 || messages.reduce((sum, item) => sum + item.content.length, 0) > 8000) {
+        messages.splice(0, 2);
+      }
       const payload = {
-        messages: [{ role: "user", content: message }],
+        messages,
         strategy: strategyEl.value,
         temperature: Number($("#temperature").value),
         max_new_tokens: Number($("#maxTokens").value),
@@ -298,22 +310,27 @@
       };
 
       try {
+        const apiKey = $("#apiKey").value.trim();
         const r = await fetch(API_BASE + "/chat", {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            ...(API_KEY ? {"x-api-key": API_KEY} : {})
+            ...(apiKey ? {"x-api-key": apiKey} : {})
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(35000)
         });
+        if (r.status === 429) throw new Error("The demo is busy. Please try again shortly.");
+        if (r.status === 401) {
+          $("#credentials").hidden = false;
+          throw new Error("This demo requires an access key. Enter it in the sidebar, then retry.");
+        }
+        if (r.status === 504) throw new Error("The model took too long to respond. Please try again shortly.");
         const result = await r.json();
         if (!r.ok) throw new Error(result.error || "Generation failed");
 
         const reply = result.reply || "(no text generated)";
-        history.push(
-          { role: "user", content: message },
-          { role: "assistant", content: reply }
-        );
+        history.splice(0, history.length, ...messages, { role: "assistant", content: reply });
         addMessage("assistant", reply);
         modelEl.textContent = result.model + " \u00b7 " +
           result.generated_tokens + " tokens \u00b7 " +
@@ -321,11 +338,16 @@
         statusEl.textContent = "API ready";
         statusEl.className = "ready";
       } catch (error) {
-        addMessage("assistant", "Error: " + error.message);
+        const detail = error.name === "TimeoutError"
+          ? "The request timed out. Please try again shortly."
+          : error.message;
+        addMessage("assistant", "Error: " + detail);
+        if (!promptEl.value) promptEl.value = message;
         statusEl.textContent = "Request failed";
         statusEl.className = "error";
       } finally {
         sendBtn.disabled = false;
+        $("#reset").disabled = false;
         promptEl.focus();
       }
     });
